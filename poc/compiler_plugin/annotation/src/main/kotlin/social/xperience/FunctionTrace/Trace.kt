@@ -1,6 +1,6 @@
 package social.xperience.FunctionTrace
 
 @Target(AnnotationTarget.FUNCTION)
-@Retention(AnnotationRetention.BINARY)
+@Retention(AnnotationRetention.SOURCE)
 annotation class Trace {
 }

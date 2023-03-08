@@ -7,7 +7,7 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
 
 @OptIn(ExperimentalCompilerApi::class)
-@AutoService()
+@AutoService(CommandLineProcessor::class)
 class FunctionTraceCommandLineProcessor : CommandLineProcessor {
     override val pluginId: String = "FunctionTrace"
     override val pluginOptions: Collection<AbstractCliOption> = listOf(
