@@ -48,16 +48,28 @@ internal class FunctionTraceClassBuilder(
     }
 }
 
+// TODO: check how the fuck the index works for storing local variables, as they currently make no sense whatsoever
+val index = 3
+
 private fun InstructionAdapter.onFunctionVisit(function: FunctionDescriptor) {
-    printStatic("Enter ${function.name}")
+    val params = function.valueParameters.joinToString(", ") { it.name.toString() }
+    printStatic("Enter ${function.name}($params)")
+    System.currentTimeMillis()
+    invokestatic("java/lang/System", "currentTimeMillis", "()J", false)
+    // pops value from stack
+    store(index, Type.LONG_TYPE)
 }
 
-private fun InstructionAdapter.printStatic(toPrint: String) {
-    val stringBuilderType = Type.getType(StringBuilder::class.java)
+val stringBuilderType = Type.getType(StringBuilder::class.java)
+
+private fun InstructionAdapter.createPrintable() {
     getstatic("java/lang/System", "out", "Ljava/io/PrintStream;")
     anew(stringBuilderType)
     dup()
     invokespecial(stringBuilderType.internalName, "<init>", "()V", false)
+}
+
+private fun InstructionAdapter.appendPrintable(toPrint: Any) {
     visitLdcInsn(toPrint)
     invokevirtual(
         stringBuilderType.internalName,
@@ -65,11 +77,29 @@ private fun InstructionAdapter.printStatic(toPrint: String) {
         "(Ljava/lang/String;)L${stringBuilderType.internalName};",
         false
     )
+}
+
+private fun InstructionAdapter.print() {
     invokevirtual(stringBuilderType.internalName, "toString", "()Ljava/lang/String;", false)
     invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V", false)
 }
 
+private fun InstructionAdapter.printStatic(toPrint: String) {
+    createPrintable()
+    appendPrintable(toPrint)
+    print()
+}
+
 
 private fun InstructionAdapter.onFunctionReturn(function: FunctionDescriptor) {
-    printStatic("Exit ${function.name}")
+    createPrintable()
+    appendPrintable("Exit ${function.name}() after ")
+    // get current time in milliseconds
+    invokestatic("java/lang/System", "currentTimeMillis", "()J", false)
+    // load old value in ms
+    load(index, Type.LONG_TYPE)
+    sub(Type.LONG_TYPE)
+    invokevirtual(stringBuilderType.internalName, "append", "(J)L${stringBuilderType.internalName};", false)
+    appendPrintable("ms")
+    print()
 }
