@@ -1,3 +1,5 @@
+package social.xperience.sample
+
 import social.xperience.FunctionTrace.Trace
 
 @Trace
