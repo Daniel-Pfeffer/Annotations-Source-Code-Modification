@@ -19,7 +19,7 @@ object InstrumentationAgent {
     @JvmStatic
     fun transformClass(annotationName: String?, instrumentation: Instrumentation) {
         val target = with(Class.forName(annotationName)) {
-            if (isAnnotation) {
+            if (this.isAnnotation) {
                 this as Class<out Annotation>
             } else {
                 throw IllegalArgumentException()
@@ -43,10 +43,15 @@ object InstrumentationAgent {
         }
     }
 
+    /**
+     * Transformer should only be added once
+     */
     @JvmStatic
     fun transform(methods: List<String>, clazz: Class<*>, classLoader: ClassLoader, instrumentation: Instrumentation) {
         val transformer = FunctionTraceClassTransformer(clazz.name, methods, classLoader)
+        // this transformer is used for all new class loads
         instrumentation.addTransformer(transformer, true)
+        // transform only loaded classes
         instrumentation.retransformClasses(clazz)
     }
 }

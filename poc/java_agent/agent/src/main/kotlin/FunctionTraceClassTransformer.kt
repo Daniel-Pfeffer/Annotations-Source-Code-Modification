@@ -25,7 +25,14 @@ class FunctionTraceClassTransformer(
 
         if (loader == targetClassLoader) {
             val cp = ClassPool.getDefault()
-            val cc = cp[targetClassName]
+            val cc = cp.get(targetClassName)
+            /*
+            cc.declaredMethods.forEach {
+                if(it.hasAnnotation(...)){
+                    transformMethod(it)
+                }
+            }
+            */
             try {
                 targetMethodName.forEach {
                     val method = cc.getDeclaredMethod(it)

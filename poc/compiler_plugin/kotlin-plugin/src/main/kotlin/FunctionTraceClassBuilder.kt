@@ -54,7 +54,6 @@ val index = 3
 private fun InstructionAdapter.onFunctionVisit(function: FunctionDescriptor) {
     val params = function.valueParameters.joinToString(", ") { it.name.toString() }
     printStatic("Enter ${function.name}($params)")
-    System.currentTimeMillis()
     invokestatic("java/lang/System", "currentTimeMillis", "()J", false)
     // pops value from stack
     store(index, Type.LONG_TYPE)
