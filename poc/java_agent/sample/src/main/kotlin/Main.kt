@@ -16,7 +16,7 @@ fun main() {
 
 @Trace
 fun hello(type: String, y: Int) {
-    println("Hello $type")
+    println("[Sample] Hello $type")
     Thread.sleep(1000)
     test(y)
 }
@@ -24,5 +24,6 @@ fun hello(type: String, y: Int) {
 
 @Trace
 fun test(x: Int) {
-    println(x)
+    println("[Sample] $x")
+    Test().test()
 }

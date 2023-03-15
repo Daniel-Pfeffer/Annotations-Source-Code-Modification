@@ -1,15 +1,27 @@
 import javassist.ClassPool
 import javassist.CtClass
 import javassist.CtMethod
-import org.slf4j.LoggerFactory
 import java.lang.instrument.ClassFileTransformer
+import java.lang.instrument.IllegalClassFormatException
 import java.security.ProtectionDomain
 
-class FunctionTraceClassTransformer(
-    private val targetClassName: String,
-    private val targetMethodName: List<String>,
-    private val targetClassLoader: ClassLoader,
+class FunctionTraceClassTransformerKotlin(
+    private val annotation: Class<out Annotation>,
 ) : ClassFileTransformer {
+
+    @Throws(IllegalClassFormatException::class)
+    override fun transform(
+        module: Module,
+        loader: ClassLoader,
+        className: String,
+        classBeingRedefined: Class<*>,
+        protectionDomain: ProtectionDomain,
+        classfileBuffer: ByteArray,
+    ): ByteArray {
+        return transform(loader, className, classBeingRedefined, protectionDomain, classfileBuffer)
+    }
+
+    @Throws(IllegalClassFormatException::class)
     override fun transform(
         loader: ClassLoader,
         className: String,
@@ -17,33 +29,27 @@ class FunctionTraceClassTransformer(
         protectionDomain: ProtectionDomain,
         classfileBuffer: ByteArray,
     ): ByteArray {
-        val finalTargetClassName = targetClassName.replace(".", "/")
+        println("[Agent] Called transform for $className")
         var byteCode = classfileBuffer
-        if (className != finalTargetClassName) {
-            return byteCode
-        }
+        var counter = 0
+        val cp = ClassPool.getDefault()
+        val cc = cp.get(className.replace("/", "."))
 
-        if (loader == targetClassLoader) {
-            val cp = ClassPool.getDefault()
-            val cc = cp.get(targetClassName)
-            /*
-            cc.declaredMethods.forEach {
-                if(it.hasAnnotation(...)){
+        cc.declaredMethods.forEach {
+            if (it.hasAnnotation(annotation)) {
+                counter++
+                try {
                     transformMethod(it)
+                } catch (e: Throwable) {
+                    println(e)
                 }
-            }
-            */
-            try {
-                targetMethodName.forEach {
-                    val method = cc.getDeclaredMethod(it)
-                    transformMethod(method)
-                }
-                byteCode = cc.toBytecode()
-                cc.detach()
-            } catch (t: Throwable) {
-                println(t)
             }
         }
+        // check if any transformation occurred, if not, we don't have to compile new, thus saving start-up runtime
+        if (counter > 0) {
+            byteCode = cc.toBytecode()
+        }
+        cc.detach()
 
         return byteCode
     }
