@@ -2,9 +2,16 @@ plugins {
     buildsrc.convention.subproject
     buildsrc.convention.`kotlin-jvm`
     kotlin("kapt")
+    idea
 }
 
 description = "Kotlin compiler plugin for Function Trace PoC"
+
+idea {
+    module {
+        isDownloadJavadoc = true
+    }
+}
 
 dependencies {
     implementation(kotlin("compiler-embeddable"))

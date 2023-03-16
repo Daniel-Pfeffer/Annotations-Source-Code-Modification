@@ -7,6 +7,7 @@ import org.jetbrains.org.objectweb.asm.MethodVisitor
 import org.jetbrains.org.objectweb.asm.Opcodes
 import org.jetbrains.org.objectweb.asm.Type
 import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
+import org.jetbrains.org.objectweb.asm.commons.LocalVariablesSorter
 
 internal class FunctionTraceClassBuilder(
     internal val classBuilder: ClassBuilder,
@@ -30,17 +31,21 @@ internal class FunctionTraceClassBuilder(
             return original
         }
 
-        return object : MethodVisitor(Opcodes.ASM5, original) {
+        // we have to override the LocalVariableSorter with the protected constructor,
+        // otherwise the init throws an IllegalStateException
+        return object : LocalVariablesSorter(Opcodes.API_VERSION, access, desc, original) {
+            var index = 0
             override fun visitCode() {
                 super.visitCode()
-                InstructionAdapter(this).onFunctionVisit(function)
+                index = newLocalMapping(Type.LONG_TYPE)
+                InstructionAdapter(this).onFunctionVisit(function, index)
             }
 
             override fun visitInsn(opcode: Int) {
                 when (opcode) {
                     Opcodes.RETURN, Opcodes.ARETURN, Opcodes.DRETURN, Opcodes.FRETURN, Opcodes.IRETURN, Opcodes.LRETURN -> InstructionAdapter(
                         this
-                    ).onFunctionReturn(function)
+                    ).onFunctionReturn(function, index)
                 }
                 super.visitInsn(opcode)
             }
@@ -48,14 +53,11 @@ internal class FunctionTraceClassBuilder(
     }
 }
 
-// TODO: check how the fuck the index works for storing local variables, as they currently make no sense whatsoever
-val index = 3
-
-private fun InstructionAdapter.onFunctionVisit(function: FunctionDescriptor) {
+private fun InstructionAdapter.onFunctionVisit(function: FunctionDescriptor, index: Int) {
     val params = function.valueParameters.joinToString(", ") { it.name.toString() }
     printStatic("Enter ${function.name}($params)")
     invokestatic("java/lang/System", "currentTimeMillis", "()J", false)
-    // pops value from stack
+    // pops value from stack and stores it at fp+index in random access stack ("variable stack")
     store(index, Type.LONG_TYPE)
 }
 
@@ -90,7 +92,7 @@ private fun InstructionAdapter.printStatic(toPrint: String) {
 }
 
 
-private fun InstructionAdapter.onFunctionReturn(function: FunctionDescriptor) {
+private fun InstructionAdapter.onFunctionReturn(function: FunctionDescriptor, index: Int) {
     createPrintable()
     appendPrintable("Exit ${function.name}() after ")
     // get current time in milliseconds
