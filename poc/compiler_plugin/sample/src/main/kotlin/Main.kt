@@ -23,4 +23,5 @@ fun hello(type: String, y: Int) {
 @Trace
 fun test(x: Int) {
     println(x)
+    Test().test("what the hell u sure? $x")
 }

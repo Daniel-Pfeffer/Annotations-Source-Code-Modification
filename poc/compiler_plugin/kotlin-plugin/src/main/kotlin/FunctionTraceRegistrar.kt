@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.codegen.extensions.ClassBuilderInterceptorExtension
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.resolve.jvm.extensions.SyntheticJavaResolveExtension
 
 @OptIn(ExperimentalCompilerApi::class)
 @AutoService(CompilerPluginRegistrar::class)
