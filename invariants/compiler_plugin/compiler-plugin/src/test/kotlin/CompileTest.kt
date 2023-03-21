@@ -24,14 +24,31 @@ class CompileTest {
                 AnnotationTarget.PROPERTY
             )
             @Retention(AnnotationRetention.SOURCE)
-            annotation class Holds()
+            annotation class Holds
 
             class Test {
-                @Holds
+                @field:Holds
                 private val x: String = "Test"
             
-                @Holds
+                @field:Holds
                 private val y: Long = 23
+
+                // on visit property: z has an annotation as the annotation is not "targeted"
+                // kotlin will generate
+                @Holds
+                private var z: Long = 24
+
+                fun doSomething(){
+                    z+=y+x.length
+                }
+
+                override fun toString(): String{
+                    return "$"+"x, "+"$"+"y, " + "$"+"z"
+                }
+            }
+
+            fun callTest(){
+                println(Test().toString())
             }
         """
         )
@@ -39,8 +56,8 @@ class CompileTest {
         val result = KotlinCompilation().apply {
             sources = listOf(kotlinSource)
             compilerPluginRegistrars = listOf(InvariantRegistrar())
-            commandLineProcessors = listOf(InvariantCommandlineProcessor())
-            messageOutputStream = System.out
+            useIR = true
+            inheritClassPath = true
         }.compile()
 
         Assertions.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)

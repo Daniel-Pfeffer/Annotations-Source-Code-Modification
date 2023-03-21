@@ -16,3 +16,11 @@ tasks.withType<KotlinCompile>().configureEach {
         freeCompilerArgs = listOf("-Xplugin=${project(":compiler-plugin").buildDir}/libs/compiler-plugin-$version.jar")
     }
 }
+
+kotlin {
+    sourceSets.all {
+        languageSettings {
+            languageVersion = "2.0"
+        }
+    }
+}

@@ -2,13 +2,13 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     `kotlin-dsl`
-    kotlin("jvm") version "1.8.10"
+    kotlin("jvm") version "1.8.20-RC"
     // Gradle uses an embedded Kotlin with version 1.4
     // https://docs.gradle.org/current/userguide/compatibility.html#kotlin
 }
 
 // set the versions of Gradle plugins that the subprojects will use here
-val kotlinPluginVersion: String = "1.8.10"
+val kotlinPluginVersion: String = "1.8.20-RC"
 
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:$kotlinPluginVersion"))

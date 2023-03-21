@@ -2,6 +2,7 @@ package social.xperience.k1
 
 import org.jetbrains.kotlin.codegen.ClassBuilder
 import org.jetbrains.kotlin.codegen.DelegatingClassBuilder
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.descriptors.FieldDescriptor
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
@@ -23,6 +24,18 @@ class InvariantClassBuilder(
     val holdsAnnotation = FqName("social.xperience.Holds")
 
     val fields: MutableList<String> = mutableListOf()
+
+    override fun defineClass(
+        origin: PsiElement?,
+        version: Int,
+        access: Int,
+        name: String,
+        signature: String?,
+        superName: String,
+        interfaces: Array<out String>,
+    ) {
+        super.defineClass(origin, version, access, name, signature, superName, interfaces)
+    }
 
     override fun newMethod(
         origin: JvmDeclarationOrigin,
