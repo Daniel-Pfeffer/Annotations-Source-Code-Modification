@@ -1,3 +1,7 @@
+package social.xperience
+
 fun main() {
-    println(Test().toString())
+    val x = Test()
+    x.testXy()
+    println(x.toString())
 }

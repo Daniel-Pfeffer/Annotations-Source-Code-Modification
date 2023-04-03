@@ -5,7 +5,6 @@ import kotlin.reflect.KClass
 @Target(
     AnnotationTarget.FUNCTION,
     AnnotationTarget.TYPE_PARAMETER,
-    AnnotationTarget.FIELD,
     AnnotationTarget.LOCAL_VARIABLE,
     AnnotationTarget.CLASS,
     AnnotationTarget.CONSTRUCTOR,

@@ -5,58 +5,39 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import social.xperience.cli.InvariantRegistrar
 
-class CompileTest {
+class HelperTest {
     @OptIn(ExperimentalCompilerApi::class)
     @Test
     fun fullTest() {
         val kotlinSource = SourceFile.kotlin(
             "TestClass.kt", """
             package social.xperience
-            import java.lang.IllegalArgumentException
 
             class Test {
                 private val x: String = "Test"
+            
                 private val y: Long = 23
-
-                // on visit property: z has an annotation as the annotation is not "targeted"
-                // kotlin will generate
-                @Holds(LongVerification::class)
-                private var z: Long = 24
-
-                fun doSomething(){
-                    /*for (i in 1..3) {
-                        z = 2
-                        if (i > 2) {
-                            return
-                        }
-                    }
-                    if(z > 23) {
-                        return
-                    }
-                    z+=(y+x.length)*/
-                    z = -2
-                    println("I did something")
+            
+                private var z: Long = 23
+                fun testXy() {
+                    z + 2
+                    Pool.longverification.verify(z)
                 }
-                
-                fun doNothing(str: String){
-                    println("I do nothing at all "+str)
-                }
-
-                override fun toString(): String{
-                    return "$"+"x, "+"$"+"y, " + "$"+"z"
+            
+                fun doNothing() {
+                    println("I do nothing at all")
                 }
             }
-
+            
+            
             class LongVerification : Verification<Long> {
                 override fun verify(toVerify: Long) {
-                    if(toVerify < 0){
-                        throw IllegalArgumentException()
-                    }
+                    TODO("Not yet implemented")
                 }
             }
 
-            fun callTest(){
-                println(Test().toString())
+            object Pool{
+                val longverification = LongVerification()
             }
         """
         )
@@ -66,11 +47,10 @@ class CompileTest {
             compilerPluginRegistrars = listOf(InvariantRegistrar())
             useIR = true
             inheritClassPath = true
-            languageVersion = "2.0"
         }.compile()
         val clazz = result.classLoader.loadClass("social.xperience.Test")
         val invoked = clazz.constructors.first().newInstance()
-        clazz.declaredMethods.single { it.name == "doSomething" }.invoke(invoked)
+        clazz.declaredMethods.single { it.name == "testXy" }.invoke(invoked)
         result.generatedFiles.forEach {
             println(it.absolutePath)
         }

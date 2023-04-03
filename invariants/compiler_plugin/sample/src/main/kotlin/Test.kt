@@ -1,12 +1,20 @@
-import social.xperience.Holds
-import social.xperience.Verification
+package social.xperience
+
 
 class Test {
-    @Holds(TestVerification::class)
     private val x: String = "Test"
 
-    @Holds(LongVerification::class)
     private val y: Long = 23
+
+    private var z: Long = 23
+    fun testXy() {
+        z + 2
+        Pool.longverification.verify(z)
+    }
+
+    fun doNothing() {
+        println("I do nothing at all")
+    }
 }
 
 
@@ -20,4 +28,8 @@ class TestVerification : Verification<String> {
     override fun verify(toVerify: String) {
         TODO("Not yet implemented")
     }
+}
+
+object Pool{
+    val longverification = LongVerification()
 }
