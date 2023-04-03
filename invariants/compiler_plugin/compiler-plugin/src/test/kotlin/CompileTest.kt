@@ -12,6 +12,8 @@ class CompileTest {
         val kotlinSource = SourceFile.kotlin(
             "TestClass.kt", """
             package social.xperience
+
+            import social.xperience.common.FunctionVerifierClass
             import java.lang.IllegalArgumentException
 
             class Test {
@@ -24,20 +26,11 @@ class CompileTest {
                 private var z: Long = 24
 
                 fun doSomething(){
-                    /*for (i in 1..3) {
-                        z = 2
-                        if (i > 2) {
-                            return
-                        }
-                    }
-                    if(z > 23) {
-                        return
-                    }
-                    z+=(y+x.length)*/
-                    z = -2
-                    println("I did something")
+                    z = 2
+                    doNothing("I did something")
                 }
                 
+                @Holds(StringFunctionVerification::class)
                 fun doNothing(str: String){
                     println("I do nothing at all "+str)
                 }
@@ -51,6 +44,15 @@ class CompileTest {
                 override fun verify(toVerify: Long) {
                     if(toVerify < 0){
                         throw IllegalArgumentException()
+                    }
+                }
+            }
+            
+            class StringFunctionVerification : Verification<FunctionVerifierClass.FunctionVerifier1<String>> {
+                override fun verify(toVerify: FunctionVerifierClass.FunctionVerifier1<String>) {
+                    val string = toVerify.a
+                    if (string.length < 4) {
+                        throw IllegalStateException("Length more than 4 required")
                     }
                 }
             }
@@ -71,6 +73,7 @@ class CompileTest {
         val clazz = result.classLoader.loadClass("social.xperience.Test")
         val invoked = clazz.constructors.first().newInstance()
         clazz.declaredMethods.single { it.name == "doSomething" }.invoke(invoked)
+
         result.generatedFiles.forEach {
             println(it.absolutePath)
         }

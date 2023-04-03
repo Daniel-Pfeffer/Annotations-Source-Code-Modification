@@ -21,7 +21,6 @@ class HelperTest {
                 private var z: Long = 23
                 fun testXy() {
                     z + 2
-                    Pool.longverification.verify(z)
                 }
             
                 fun doNothing() {
@@ -34,10 +33,6 @@ class HelperTest {
                 override fun verify(toVerify: Long) {
                     TODO("Not yet implemented")
                 }
-            }
-
-            object Pool{
-                val longverification = LongVerification()
             }
         """
         )

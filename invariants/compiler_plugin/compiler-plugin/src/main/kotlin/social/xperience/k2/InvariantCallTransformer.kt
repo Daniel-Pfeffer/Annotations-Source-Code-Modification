@@ -1,9 +1,9 @@
 package social.xperience.k2
 
+import org.jetbrains.kotlin.backend.common.CompilationException
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
-import org.jetbrains.kotlin.backend.jvm.ir.needsAccessor
 import org.jetbrains.kotlin.backend.jvm.ir.propertyIfAccessor
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.descriptors.Modality
@@ -18,6 +18,8 @@ import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrReturn
 import org.jetbrains.kotlin.ir.interpreter.getAnnotation
+import org.jetbrains.kotlin.ir.types.IrSimpleType
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -40,10 +42,6 @@ class InvariantCallTransformer(
     private val messageCollector: MessageCollector,
     private val annotation: FqName = FqName("social.xperience.Holds"),
 ) : IrElementTransformerVoidWithContext() {
-
-    init {
-        println()
-    }
 
     private var hasPropertyLevelAnnotation: Boolean = false
 
@@ -79,28 +77,34 @@ class InvariantCallTransformer(
             for (property in setProperties) {
                 val classReference = property.getAnnotation(annotation).valueArguments.first() as IrClassReference
                 if (!SharedReferences.generatedPoolFields.contains(classReference)) {
-                    generateNewFieldForClassReference(classReference)
+                    generateNewPoolProperty(classReference)
                 }
-                val classId = (classReference.symbol.owner as IrClass).classId!!
-                val function = this@InvariantCallTransformer.context.referenceFunctions(
-                    CallableId(classId, Name.identifier("verify"))
-                ).single()
-                +irCall(function).also {
-                    it.dispatchReceiver = irGetField(
-                        irGetObject(poolClass.symbol),
-                        poolClass.properties.find { field -> field.name == classReference.variableIdentifier() }!!.backingField!!
+                +generateVerificationFunctionCall(
+                    classReference, irGetField(
+                        irGet(currentFunction.dispatchReceiverParameter!!),
+                        property.backingField!!,
+                        property.backingField!!.type
                     )
-                    it.putValueArgument(
-                        0,
-                        irGetField(
-                            irGet(currentFunction.dispatchReceiverParameter!!),
-                            property.backingField!!,
-                            property.backingField!!.type
-                        )
-                    )
-                }
+                )
             }
             +super.visitReturn(expression)
+        }
+    }
+
+    private fun IrBuilderWithScope.generateVerificationFunctionCall(
+        classReference: IrClassReference,
+        argument: IrExpression,
+    ): IrFunctionAccessExpression {
+        val classId = (classReference.symbol.owner as IrClass).classId!!
+        val function =
+            this@InvariantCallTransformer.context.referenceFunctions(CallableId(classId, Name.identifier("verify")))
+                .single()
+        return irCall(function).also {
+            it.dispatchReceiver = irGetField(
+                irGetObject(poolClass.symbol),
+                poolClass.properties.find { field -> field.name == classReference.variableIdentifier() }!!.backingField!!
+            )
+            it.putValueArgument(0, argument)
         }
     }
 
@@ -108,7 +112,7 @@ class InvariantCallTransformer(
         return Name.identifier((symbol.owner as IrClass).name.asString().lowercase())
     }
 
-    private fun generateNewFieldForClassReference(classReference: IrClassReference) {
+    private fun generateNewPoolProperty(classReference: IrClassReference) {
         poolClass.addProperty {
             name = classReference.variableIdentifier()
             modality = Modality.FINAL
@@ -155,7 +159,34 @@ class InvariantCallTransformer(
     override fun visitFunctionNew(declaration: IrFunction): IrStatement {
         // function has function level annotation -> verify function parameter
         if (declaration.hasAnnotation(annotation)) {
-
+            val numberOfValueParams = declaration.valueParameters.size
+            if (numberOfValueParams < 1 || numberOfValueParams > 15) {
+                throw CompilationException(
+                    "@Holds annotation for functions with $numberOfValueParams is not supported",
+                    currentFile,
+                    declaration
+                )
+            }
+            // use "." for children of sealed classes, that are !directly! nested
+            val classToUse =
+                context.referenceClass(ClassId.fromString("social/xperience/common/FunctionVerifierClass.FunctionVerifier$numberOfValueParams"))!!
+            val classReference = declaration.getAnnotation(annotation).valueArguments.first() as IrClassReference
+            if (!SharedReferences.generatedPoolFields.contains(classReference)) {
+                generateNewPoolProperty(classReference)
+            }
+            (declaration.body!!.statements as MutableList).add(
+                0,
+                DeclarationIrBuilder(context, declaration.symbol).irBlock {
+                    +generateVerificationFunctionCall(
+                        classReference,
+                        irCallConstructor(
+                            classToUse.owner.primaryConstructor!!.symbol,
+                            declaration.valueParameters.map { it.type }
+                        ).also {
+                            it.putValueArgument(0, irGet(declaration.valueParameters.first()))
+                        }
+                    )
+                })
         }
         // if absolutely no property or class level annotation were found, we can simply exit for now
         // when introducing function and local variable annotations that will become obsolete
