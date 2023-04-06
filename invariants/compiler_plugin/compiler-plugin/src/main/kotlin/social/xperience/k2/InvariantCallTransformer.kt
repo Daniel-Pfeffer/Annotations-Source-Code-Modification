@@ -12,9 +12,13 @@ import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.utils.valueArguments
 import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.builders.declarations.*
+import org.jetbrains.kotlin.ir.builders.declarations.addProperty
+import org.jetbrains.kotlin.ir.builders.declarations.buildField
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.IrClassReference
+import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
+import org.jetbrains.kotlin.ir.expressions.IrReturn
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.interpreter.getAnnotation
 import org.jetbrains.kotlin.ir.symbols.impl.IrAnonymousInitializerSymbolImpl
@@ -23,15 +27,7 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import kotlin.collections.MutableList
-import kotlin.collections.MutableSet
-import kotlin.collections.emptyList
-import kotlin.collections.first
-import kotlin.collections.last
-import kotlin.collections.mutableMapOf
-import kotlin.collections.mutableSetOf
 import kotlin.collections.set
-import kotlin.collections.single
 
 class InvariantCallTransformer(
     private val sourceFile: IrFile,
@@ -41,12 +37,12 @@ class InvariantCallTransformer(
     private val annotation: FqName = FqName("social.xperience.Holds"),
 ) : IrElementTransformerVoidWithContext() {
 
-    private lateinit var poolClass: IrClass
+    private val irFactory: IrFactory = context.irFactory
 
 
     override fun visitClassNew(declaration: IrClass): IrStatement {
         if (declaration.classId == SharedReferences.poolClassId) {
-            poolClass = declaration
+            SharedReferences.poolClass = declaration
         }
         return super.visitClassNew(declaration)
     }
@@ -86,7 +82,7 @@ class InvariantCallTransformer(
         element: IrDeclarationBase,
         argument: IrExpression,
     ): IrFunctionAccessExpression {
-        val classReference = element.getAnnotation(annotation).valueArguments.first() as IrClassReference
+        val classReference = element.getAnnotation(annotation).getValueArgument(0)!! as IrClassReference
         if (!SharedReferences.generatedPoolFields.contains(classReference)) {
             generateNewPoolProperty(classReference)
         }
@@ -96,8 +92,8 @@ class InvariantCallTransformer(
                 .single()
         return irCall(function).also {
             it.dispatchReceiver = irGetField(
-                irGetObject(poolClass.symbol),
-                poolClass.properties.find { field -> field.name == classReference.variableIdentifier() }!!.backingField!!
+                irGetObject(SharedReferences.poolClass.symbol),
+                SharedReferences.poolClass.properties.find { field -> field.name == classReference.variableIdentifier() }!!.backingField!!
             )
             it.putValueArgument(0, argument)
         }
@@ -111,24 +107,25 @@ class InvariantCallTransformer(
      * Generates a new Verification Pool property to avoid constructor calls, as Verification classes must be stateless
      */
     private fun generateNewPoolProperty(classReference: IrClassReference) {
-        poolClass.addProperty {
+        SharedReferences.poolClass.addProperty {
             name = classReference.variableIdentifier()
             modality = Modality.FINAL
-        }.also {
-            it.backingField = context.irFactory.buildField {
+        }.also { property ->
+            property.backingField = irFactory.buildField {
                 isFinal = true
                 name = classReference.variableIdentifier()
                 type = classReference.classType
             }.also { field ->
-                field.correspondingPropertySymbol = it.symbol
-                field.parent = poolClass
-                field.initializer = context.irFactory.createExpressionBody(
-                    -1, -1,
+                val primaryConstructorSymbol = (classReference.symbol.owner as IrClass).primaryConstructor!!.symbol
+                field.correspondingPropertySymbol = property.symbol
+                field.parent = SharedReferences.poolClass
+                field.initializer = irFactory.createExpressionBody(
+                    UNDEFINED_OFFSET, UNDEFINED_OFFSET,
                     IrConstructorCallImpl.fromSymbolOwner(
-                        -1,
-                        -1,
-                        (classReference.symbol.owner as IrClass).primaryConstructor!!.symbol.owner.returnType,
-                        (classReference.symbol.owner as IrClass).primaryConstructor!!.symbol,
+                        UNDEFINED_OFFSET,
+                        UNDEFINED_OFFSET,
+                        primaryConstructorSymbol.owner.returnType,
+                        primaryConstructorSymbol,
                         0
                     )
                 )
@@ -187,7 +184,7 @@ class InvariantCallTransformer(
     private fun generateVerificationCallForAnonymousInitializer(declaration: IrConstructor): IrAnonymousInitializer {
         val clazz = declaration.parentAsClass
         val propertiesWithAnnotation = clazz.properties.filter { it.hasAnnotation(annotation) }
-        return context.irFactory.createAnonymousInitializer(
+        return irFactory.createAnonymousInitializer(
             UNDEFINED_OFFSET,
             UNDEFINED_OFFSET,
             IrDeclarationOrigin.INSTANCE_RECEIVER,

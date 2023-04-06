@@ -1,11 +1,11 @@
 package social.xperience.social.xperience.validator
 
 import social.xperience.Verification
-import social.xperience.social.xperience.dto.RequestUserDTO
+import social.xperience.social.xperience.dto.Update
 import java.lang.IllegalArgumentException
 
-class UpdateValidator : Verification<RequestUserDTO.Update> {
-    override fun verify(toVerify: RequestUserDTO.Update) {
+class UpdateValidator : Verification<Update> {
+    override fun verify(toVerify: Update) {
         with(toVerify) {
             if (firstname == null && lastname == null && username == null && profession == null && description == null && birthday == null && languages == null) {
                 throw IllegalStateException("Updating nothing is not supported!")

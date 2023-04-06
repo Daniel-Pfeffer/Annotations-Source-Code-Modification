@@ -67,34 +67,44 @@ class ConstructorVerificationTest {
         @JvmStatic
         @BeforeAll
         fun setUp() {
-            val kotlinSource = SourceFile.kotlin(
+            val dataClasses = SourceFile.kotlin(
+                "DataClasses.kt", """
+                package social.xperience
+
+                @Holds(TestVerification::class) 
+                data class TestUserData(@Holds(MustBe18::class) val age: Age, val username: String)
+                
+                
+                @JvmInline
+                value class Age(val value: Int)
+            """
+            )
+
+            val verifier = SourceFile.kotlin(
+                "Verifier.kt", """
+                package social.xperience
+
+                class TestVerification : Verification<TestUserData> {
+                    override fun verify(toVerify: TestUserData) {
+                        if (toVerify.username.length < 4) {
+                            throw IllegalArgumentException("Username must be at least 4 chars long")
+                        }
+                    }
+                }
+                
+                class MustBe18 : Verification<Age> {
+                    override fun verify(toVerify: Age) {
+                        if (toVerify.value < 18) {
+                            throw IllegalArgumentException("Must be at least 18 years old to register")
+                        }
+                    }
+                }
+            """
+            )
+
+            val main = SourceFile.kotlin(
                 "TestClass.kt", """
             package social.xperience
-
-            import social.xperience.common.FunctionVerifierClass
-
-            @Holds(TestVerification::class) 
-            data class TestUserData(@Holds(MustBe18::class) val age: Age, val username: String)
-            
-            
-            @JvmInline
-            value class Age(val value: Int)
-            
-            class TestVerification : Verification<TestUserData> {
-                override fun verify(toVerify: TestUserData) {
-                    if (toVerify.username.length < 4) {
-                        throw IllegalArgumentException("Username must be at least 4 chars long")
-                    }
-                }
-            }
-            
-            class MustBe18 : Verification<Age> {
-                override fun verify(toVerify: Age) {
-                    if (toVerify.value < 18) {
-                        throw IllegalArgumentException("Must be at least 18 years old to register")
-                    }
-                }
-            }
 
             fun mainValid(){
                 val user = TestUserData(Age(22), "MrAdult")
@@ -122,7 +132,7 @@ class ConstructorVerificationTest {
             )
 
             result = KotlinCompilation().apply {
-                sources = listOf(kotlinSource)
+                sources = listOf(dataClasses, verifier, main)
                 kotlincArguments = listOf("-Xcontext-receivers")
                 compilerPluginRegistrars = listOf(InvariantRegistrar())
                 useIR = true

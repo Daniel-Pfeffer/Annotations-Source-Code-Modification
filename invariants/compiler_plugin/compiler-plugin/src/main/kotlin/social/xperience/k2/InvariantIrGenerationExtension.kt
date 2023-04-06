@@ -1,5 +1,6 @@
 package social.xperience.k2
 
+import org.jetbrains.kotlin.backend.common.CompilationException
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -90,6 +91,7 @@ class InvariantIrGenerationExtension(
                 })
             irClass.parent = file
             // set sharedReference class to complete classid consisting of package and name
+            //throw CompilationException("Uwu sum error occurred ${irClass.classId}", file, null, null)
             SharedReferences.poolClassId = irClass.classId!!
         }
     }
