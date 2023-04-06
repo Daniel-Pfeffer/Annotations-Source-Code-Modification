@@ -13,26 +13,34 @@ class HelperTest {
             "TestClass.kt", """
             package social.xperience
 
-            class Test {
-                private val x: String = "Test"
+            import social.xperience.common.FunctionVerifierClass
             
-                private val y: Long = 23
             
-                private var z: Long = 23
-                fun testXy() {
-                    z + 2
-                }
-            
-                fun doNothing() {
-                    println("I do nothing at all")
+            data class Test(val x: Int, val y: Int) {
+                init{
+                    Pool.testverification.verify(this)
                 }
             }
             
-            
-            class LongVerification : Verification<Long> {
-                override fun verify(toVerify: Long) {
-                    TODO("Not yet implemented")
+            class TestVerification : Verification<Test> {
+                override fun verify(toVerify: Test) {
+                    if (toVerify.x < 0) {
+                        throw IllegalStateException("")
+                    }
                 }
+            }
+            
+            class StringFunctionVerification : Verification<FunctionVerifierClass.FunctionVerifier1<String>> {
+                override fun verify(toVerify: FunctionVerifierClass.FunctionVerifier1<String>) {
+                    val string = toVerify.a
+                    if (string.length < 4) {
+                        throw IllegalStateException("Length more than 4 required")
+                    }
+                }
+            }
+            
+            object Pool {
+                val testverification = TestVerification()
             }
         """
         )

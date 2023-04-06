@@ -35,7 +35,6 @@ class InvariantIrGenerationExtension(
         }
         moduleFragment.files.forEach {
             InvariantCallTransformer(it, pluginContext.irBuiltIns, pluginContext, messageCollector).visitFile(it)
-            it.dump()
         }
     }
 

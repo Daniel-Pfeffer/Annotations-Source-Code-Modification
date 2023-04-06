@@ -14,36 +14,33 @@ class CompileTest {
             package social.xperience
 
             import social.xperience.common.FunctionVerifierClass
-            import java.lang.IllegalArgumentException
-
+            
+            @Holds(TestVerification::class)
             class Test {
-                private val x: String = "Test"
-                private val y: Long = 23
-
-                // on visit property: z has an annotation as the annotation is not "targeted"
-                // kotlin will generate
-                @Holds(LongVerification::class)
-                private var z: Long = 24
-
+                val x: String = "Test"
+            
+                val y: Long = 23
+            
+                var z: Long = 23
+                fun testXy() {
+                    z = -2
+                }
+                
                 fun doSomething(){
                     z = 2
                     doNothing("I did something")
                 }
-                
+            
                 @Holds(StringFunctionVerification::class)
-                fun doNothing(str: String){
-                    println("I do nothing at all "+str)
-                }
-
-                override fun toString(): String{
-                    return "$"+"x, "+"$"+"y, " + "$"+"z"
+                fun doNothing(hello: String) {
+                    println("I do nothing at all "+hello)
                 }
             }
-
-            class LongVerification : Verification<Long> {
-                override fun verify(toVerify: Long) {
-                    if(toVerify < 0){
-                        throw IllegalArgumentException()
+            
+            class TestVerification : Verification<Test> {
+                override fun verify(toVerify: Test) {
+                    if (toVerify.z < 0) {
+                        throw IllegalStateException("")
                     }
                 }
             }
@@ -55,10 +52,6 @@ class CompileTest {
                         throw IllegalStateException("Length more than 4 required")
                     }
                 }
-            }
-
-            fun callTest(){
-                println(Test().toString())
             }
         """
         )

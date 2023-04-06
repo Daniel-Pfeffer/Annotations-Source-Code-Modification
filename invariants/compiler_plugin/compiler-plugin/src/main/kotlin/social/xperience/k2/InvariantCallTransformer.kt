@@ -9,17 +9,15 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrStatement
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.utils.valueArguments
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.*
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.expressions.IrClassReference
-import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
-import org.jetbrains.kotlin.ir.expressions.IrReturn
+import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.interpreter.getAnnotation
-import org.jetbrains.kotlin.ir.types.IrSimpleType
-import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.symbols.impl.IrAnonymousInitializerSymbolImpl
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -43,23 +41,10 @@ class InvariantCallTransformer(
     private val annotation: FqName = FqName("social.xperience.Holds"),
 ) : IrElementTransformerVoidWithContext() {
 
-    private var hasPropertyLevelAnnotation: Boolean = false
-
     private lateinit var poolClass: IrClass
 
-    /**
-     * We only care about property annotations, as in Kotlin we can't create a Field directly,
-     * thus a field annotation wouldn't be intelligent
-     */
-    override fun visitPropertyNew(declaration: IrProperty): IrStatement {
-        // check if a property has an annotation
-        hasPropertyLevelAnnotation = hasPropertyLevelAnnotation || declaration.hasAnnotation(annotation)
-        return super.visitPropertyNew(declaration)
-    }
 
     override fun visitClassNew(declaration: IrClass): IrStatement {
-        // check if the class has a class level annotation
-        hasPropertyLevelAnnotation = hasPropertyLevelAnnotation || declaration.hasAnnotation(annotation)
         if (declaration.classId == SharedReferences.poolClassId) {
             poolClass = declaration
         }
@@ -75,16 +60,22 @@ class InvariantCallTransformer(
 
         return DeclarationIrBuilder(context, currentFunction.symbol).irBlock {
             for (property in setProperties) {
-                val classReference = property.getAnnotation(annotation).valueArguments.first() as IrClassReference
-                if (!SharedReferences.generatedPoolFields.contains(classReference)) {
-                    generateNewPoolProperty(classReference)
-                }
-                +generateVerificationFunctionCall(
-                    classReference, irGetField(
-                        irGet(currentFunction.dispatchReceiverParameter!!),
-                        property.backingField!!,
-                        property.backingField!!.type
+                if (property.hasAnnotation(annotation)) {
+                    +generateVerificationFunctionCall(
+                        property, irGetField(
+                            irGet(currentFunction.dispatchReceiverParameter!!),
+                            property.backingField!!,
+                            property.backingField!!.type
+                        )
                     )
+                }
+            }
+            // we can use any property as they are grouped by functions, thus cannot have different parents
+            val property = setProperties.firstOrNull { it.parentAsClass.hasAnnotation(annotation) }
+            if (property != null) {
+                val parent = property.parentAsClass
+                +generateVerificationFunctionCall(
+                    parent, irGet(currentFunction.dispatchReceiverParameter!!, parent.defaultType)
                 )
             }
             +super.visitReturn(expression)
@@ -92,9 +83,13 @@ class InvariantCallTransformer(
     }
 
     private fun IrBuilderWithScope.generateVerificationFunctionCall(
-        classReference: IrClassReference,
+        element: IrDeclarationBase,
         argument: IrExpression,
     ): IrFunctionAccessExpression {
+        val classReference = element.getAnnotation(annotation).valueArguments.first() as IrClassReference
+        if (!SharedReferences.generatedPoolFields.contains(classReference)) {
+            generateNewPoolProperty(classReference)
+        }
         val classId = (classReference.symbol.owner as IrClass).classId!!
         val function =
             this@InvariantCallTransformer.context.referenceFunctions(CallableId(classId, Name.identifier("verify")))
@@ -112,6 +107,9 @@ class InvariantCallTransformer(
         return Name.identifier((symbol.owner as IrClass).name.asString().lowercase())
     }
 
+    /**
+     * Generates a new Verification Pool property to avoid constructor calls, as Verification classes must be stateless
+     */
     private fun generateNewPoolProperty(classReference: IrClassReference) {
         poolClass.addProperty {
             name = classReference.variableIdentifier()
@@ -124,13 +122,14 @@ class InvariantCallTransformer(
             }.also { field ->
                 field.correspondingPropertySymbol = it.symbol
                 field.parent = poolClass
-                field.initializer = DeclarationIrBuilder(context, field.symbol).irExprBody(
-                    DeclarationIrBuilder(
-                        context,
-                        field.symbol
-                    ).irCallConstructor(
+                field.initializer = context.irFactory.createExpressionBody(
+                    -1, -1,
+                    IrConstructorCallImpl.fromSymbolOwner(
+                        -1,
+                        -1,
+                        (classReference.symbol.owner as IrClass).primaryConstructor!!.symbol.owner.returnType,
                         (classReference.symbol.owner as IrClass).primaryConstructor!!.symbol,
-                        emptyList()
+                        0
                     )
                 )
             }
@@ -154,59 +153,85 @@ class InvariantCallTransformer(
     }
 
     /**
+     * If the declaration has a `HOLDS` annotation, inject a verification for all function params
      * Injects a function call at the end of the function body
      */
     override fun visitFunctionNew(declaration: IrFunction): IrStatement {
         // function has function level annotation -> verify function parameter
-        if (declaration.hasAnnotation(annotation)) {
-            val numberOfValueParams = declaration.valueParameters.size
-            if (numberOfValueParams < 1 || numberOfValueParams > 15) {
-                throw CompilationException(
-                    "@Holds annotation for functions with $numberOfValueParams is not supported",
-                    currentFile,
-                    declaration
-                )
-            }
-            // use "." for children of sealed classes, that are !directly! nested
-            val classToUse =
-                context.referenceClass(ClassId.fromString("social/xperience/common/FunctionVerifierClass.FunctionVerifier$numberOfValueParams"))!!
-            val classReference = declaration.getAnnotation(annotation).valueArguments.first() as IrClassReference
-            if (!SharedReferences.generatedPoolFields.contains(classReference)) {
-                generateNewPoolProperty(classReference)
-            }
-            (declaration.body!!.statements as MutableList).add(
-                0,
-                DeclarationIrBuilder(context, declaration.symbol).irBlock {
-                    +generateVerificationFunctionCall(
-                        classReference,
-                        irCallConstructor(
-                            classToUse.owner.primaryConstructor!!.symbol,
-                            declaration.valueParameters.map { it.type }
-                        ).also {
-                            it.putValueArgument(0, irGet(declaration.valueParameters.first()))
-                        }
-                    )
-                })
-        }
-        // if absolutely no property or class level annotation were found, we can simply exit for now
-        // when introducing function and local variable annotations that will become obsolete
-        if (!hasPropertyLevelAnnotation) {
-            return super.visitFunctionNew(declaration)
+        if (declaration.hasAnnotation(annotation) && declaration !is IrConstructor) {
+            val verificationCall = generateVerificationCallForFunction(declaration)
+            (declaration.body!!.statements as MutableList).add(0, verificationCall)
         }
         // We currently don't care about function property accessor, constructor and fake overrides.
         // Fake overrides are functions of parents that we don't explicitly override
-        if (declaration is IrConstructor || declaration.isPropertyAccessor || declaration.isFakeOverride) {
+        if (declaration.isPropertyAccessor || declaration.isFakeOverride) {
             return super.visitFunctionNew(declaration)
         }
 
-        val body = declaration.body ?: return super.visitFunctionNew(declaration)
+        if (declaration is IrConstructor) {
+            declaration.parentAsClass.declarations.add(generateVerificationCallForAnonymousInitializer(declaration))
+        } else {
+            val body = declaration.body ?: return super.visitFunctionNew(declaration)
 
-        // an additional irCall is needed at the end, as ()V functions have no explicit IrReturn
-        if (body.statements.last() !is IrReturn) {
-            // why does something like this work?
-            // deliberately, cast body.statement list to mutable, to add irReturnUnit statement
-            (body.statements as MutableList).add(DeclarationIrBuilder(context, declaration.symbol).irReturnUnit())
+            // an additional irCall is needed at the end, as ()V functions have no explicit IrReturn
+            if (body.statements.last() !is IrReturn) {
+                // why does something like this work?
+                // deliberately, cast body.statement list to mutable, to add irReturnUnit statement
+                (body.statements as MutableList).add(DeclarationIrBuilder(context, declaration.symbol).irReturnUnit())
+            }
         }
+
         return super.visitFunctionNew(declaration)
+    }
+
+    private fun generateVerificationCallForAnonymousInitializer(declaration: IrConstructor): IrAnonymousInitializer {
+        val clazz = declaration.parentAsClass
+        val propertiesWithAnnotation = clazz.properties.filter { it.hasAnnotation(annotation) }
+        return context.irFactory.createAnonymousInitializer(
+            UNDEFINED_OFFSET,
+            UNDEFINED_OFFSET,
+            IrDeclarationOrigin.INSTANCE_RECEIVER,
+            IrAnonymousInitializerSymbolImpl(),
+            false
+        ).apply {
+            parent = clazz
+            body = DeclarationIrBuilder(context, declaration.symbol).irBlockBody {
+                if (clazz.hasAnnotation(annotation)) {
+                    +generateVerificationFunctionCall(
+                        clazz, irGet(clazz.thisReceiver!!, clazz.defaultType)
+                    )
+                }
+                propertiesWithAnnotation.forEach {
+                    +generateVerificationFunctionCall(
+                        it, irGetField(
+                            irGet(clazz.thisReceiver!!),
+                            it.backingField!!,
+                            it.backingField!!.type
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private fun generateVerificationCallForFunction(declaration: IrFunction): IrExpression {
+        val numberOfValueParams = declaration.valueParameters.size
+        if (numberOfValueParams < 1 || numberOfValueParams > 15) {
+            throw CompilationException(
+                "@Holds annotation for functions with $numberOfValueParams is not supported", currentFile, declaration
+            )
+        }
+        // use "." for children of sealed classes, that are !directly! nested
+        // could be optimized further by introducing storing in a fixed size list
+        val classToUse =
+            context.referenceClass(ClassId.fromString("social/xperience/common/FunctionVerifierClass.FunctionVerifier$numberOfValueParams"))!!
+
+        return DeclarationIrBuilder(context, declaration.symbol).irBlock {
+            +generateVerificationFunctionCall(declaration,
+                irCallConstructor(classToUse.owner.primaryConstructor!!.symbol,
+                    declaration.valueParameters.map { it.type }).also {
+                    it.putValueArgument(0, irGet(declaration.valueParameters.first()))
+                })
+        }
     }
 }

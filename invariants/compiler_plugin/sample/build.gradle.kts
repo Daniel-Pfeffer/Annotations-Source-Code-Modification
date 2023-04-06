@@ -13,7 +13,10 @@ dependencies {
 
 tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions {
-        freeCompilerArgs = listOf("-Xplugin=${project(":compiler-plugin").buildDir}/libs/compiler-plugin-$version.jar")
+        freeCompilerArgs = listOf(
+            "-Xplugin=${project(":compiler-plugin").buildDir}/libs/compiler-plugin-$version.jar",
+            "-Xcontext-receivers"
+        )
     }
 }
 

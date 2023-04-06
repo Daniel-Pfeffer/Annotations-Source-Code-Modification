@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     buildsrc.convention.subproject
     buildsrc.convention.`kotlin-jvm`
@@ -18,6 +20,14 @@ dependencies {
 
     compileOnly("com.google.auto.service:auto-service:1.0.1")
     kapt("com.google.auto.service:auto-service:1.0.1")
+}
+
+tasks.withType<KotlinCompile>().configureEach {
+    kotlinOptions {
+        freeCompilerArgs = listOf(
+            "-Xcontext-receivers"
+        )
+    }
 }
 
 tasks.test {
