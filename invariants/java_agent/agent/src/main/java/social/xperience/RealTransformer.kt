@@ -5,6 +5,7 @@ import javassist.CtConstructor
 import javassist.CtField
 import javassist.CtMethod
 import javassist.Modifier
+import javassist.bytecode.LocalVariableAttribute
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
@@ -19,6 +20,8 @@ class RealTransformer(className: String) {
     private val annotatedFieldsWithSetter: MutableMap<CtField, KClass<out Verification<*>>> = mutableMapOf()
 
     private val createdVerificationFields: MutableSet<String> = mutableSetOf()
+
+    private var hasChanges = false
 
     companion object {
         val logger: Logger = LoggerFactory.getLogger(RealTransformer::class.java)
@@ -43,10 +46,11 @@ class RealTransformer(className: String) {
         }
     }
 
-    fun shouldCompile(): Boolean = classVerifier != null || annotatedFields.isNotEmpty()
+    fun shouldCompile(): Boolean = classVerifier != null || annotatedFields.isNotEmpty() || hasChanges
 
 
     fun compile(): ByteArray {
+        ctClass.writeFile("generated")
         return ctClass.toBytecode()
     }
 
@@ -72,8 +76,15 @@ class RealTransformer(className: String) {
                 "${ctClass.name}.${classVerifier!!.simpleName!!.lowercase()}.verify(this);"
             )
         }
+        annotatedFields.forEach { (field, verifier) ->
+            ctConstructor.insertAfter(
+                "${ctClass.name}.${verifier.simpleName!!.lowercase()}.verify(this.${field.name});"
+            )
+        }
         if (annotation != null) {
-            TODO()
+            ctConstructor.insertAfter(
+                "${ctClass.name}.${annotation.verifier.simpleName!!.lowercase()}.verify(this);"
+            )
         }
     }
 
@@ -85,7 +96,27 @@ class RealTransformer(className: String) {
         val annotation = ctMethod.getAnnotation(Commons.annotation.java) as Holds? ?: return
         logger.info("Found method annotation in class ${ctClass.name}#${ctMethod.name}")
         visitAnnotation(annotation)
+        hasChanges = true
+        val paramSize = ctMethod.parameterTypes.size
+        val params =
+            (ctMethod.methodInfo.codeAttribute.getAttribute(LocalVariableAttribute.tag) as LocalVariableAttribute)
+
+        val functionVerifierParam = mutableListOf<String>()
+
+        repeat(paramSize) {
+            functionVerifierParam += params.variableName(it)
+        }
+
+        val x =
+            "${ctClass.name}.${annotation.verifier.simpleName!!.lowercase()}.verify(new social.xperience.common.FunctionVerifierClass.FunctionVerifier$paramSize(${
+                functionVerifierParam.joinToString(
+                    ", "
+                )
+            }));"
+
+        ctMethod.insertBefore(x)
     }
+
 
     /**
      * Creates a Verification pool field
@@ -99,7 +130,7 @@ class RealTransformer(className: String) {
             ctClass.addField(field, CtField.Initializer.byNew(classPool.get(verifierClassName)))
         }
     }
-    
+
     private fun CtField.hasSetter(): Boolean {
         return declaringClass.declaredMethods.any {
             it.name == "set${name.capitalized}"
