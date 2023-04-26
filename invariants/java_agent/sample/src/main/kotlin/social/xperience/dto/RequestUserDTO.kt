@@ -1,8 +1,7 @@
 package social.xperience.dto
 
 import social.xperience.Holds
-import social.xperience.validator.ProfessionValidator
-import social.xperience.validator.UpdateValidator
+import social.xperience.validator.*
 
 @Holds(UpdateValidator::class)
 data class Update(
@@ -13,29 +12,27 @@ data class Update(
     val profession: String? = null,
     val description: String? = null,
     val birthday: Long? = null,
-    val languages: Set<String>? = null,
 )
 
-data class Login(val email: String, val password: String)
+@Holds(LoginValidator::class)
+data class Login(
+    @Holds(EmailValidator::class)
+    val email: Email,
+    @Holds(PasswordValidator::class)
+    val password: Password,
+)
 
+typealias Email = String
+
+typealias Password = String
+
+@Holds(RegisterValidator::class)
 data class Register(
     val username: String? = null,
     val firstname: String,
     val lastname: String,
-    val email: String,
-    val password: String,
-    val options: RegisterOptions = RegisterOptions(),
-) {
-    data class RegisterOptions(
-        val skipPicture: Boolean = false,
-        val skipAdminChat: Boolean = false,
-        val skipAutomaticFriendRequests: Boolean = false,
-    )
-}
-
-data class Filter(
-    val postalCode: String? = null,
-    val locationRadius: Double?,
-    val minAge: Int?,
-    val maxAge: Int?,
+    @Holds(EmailValidator::class)
+    val email: Email,
+    @Holds(PasswordValidator::class)
+    val password: Password,
 )

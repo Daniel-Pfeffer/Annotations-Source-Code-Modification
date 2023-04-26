@@ -1,13 +1,15 @@
 package social.xperience.validator
 
 import social.xperience.Verification
+import social.xperience.dto.Login
+import social.xperience.dto.Register
 import social.xperience.dto.Update
 import java.lang.IllegalArgumentException
 
 class UpdateValidator : Verification<Update> {
     override fun verify(toVerify: Update) {
         with(toVerify) {
-            if (firstname == null && lastname == null && username == null && profession == null && description == null && birthday == null && languages == null) {
+            if (firstname == null && lastname == null && username == null && profession == null && description == null && birthday == null) {
                 throw IllegalStateException("Updating nothing is not supported!")
             }
             if (firstname != null) {
@@ -15,7 +17,7 @@ class UpdateValidator : Verification<Update> {
                     throw IllegalArgumentException("Firstname max length is 100")
                 }
                 if (firstname.codePoints().count() < 2) {
-                    throw IllegalArgumentException("Fistname min length is 2")
+                    throw IllegalArgumentException("Firstname min length is 2")
                 }
             }
             if (lastname != null) {
@@ -31,6 +33,8 @@ class UpdateValidator : Verification<Update> {
 }
 
 class ProfessionValidator : Verification<String?> {
+    private val professions = listOf("Software Developer", "Software Architect", "Lecturer")
+
     override fun verify(toVerify: String?) {
         if (toVerify != null) {
             if (toVerify.codePoints().count() > 2048) {
@@ -42,9 +46,21 @@ class ProfessionValidator : Verification<String?> {
         }
     }
 
-    private val professions = listOf("Software Developer", "Software Architect", "Lecturer")
-
     private fun isValidProfession(profession: String): Boolean {
         return profession in professions
     }
+}
+
+class RegisterValidator : Verification<Register> {
+    override fun verify(toVerify: Register) {
+        TODO("Not yet implemented")
+    }
+
+}
+
+class LoginValidator : Verification<Login> {
+    override fun verify(toVerify: Login) {
+        TODO("Not yet implemented")
+    }
+
 }

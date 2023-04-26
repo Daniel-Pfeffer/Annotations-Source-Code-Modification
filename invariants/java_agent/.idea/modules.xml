@@ -5,6 +5,7 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/agent/Invariants-JavaAgent.agent.main.iml" filepath="$PROJECT_DIR$/.idea/modules/agent/Invariants-JavaAgent.agent.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/Invariants-JavaAgent.buildSrc.main.iml" filepath="$PROJECT_DIR$/.idea/modules/Invariants-JavaAgent.buildSrc.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/Invariants-JavaAgent.sample.main.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/Invariants-JavaAgent.sample.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/Invariants-JavaAgent.sample.test.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/Invariants-JavaAgent.sample.test.iml" />
     </modules>
   </component>
 </project>
