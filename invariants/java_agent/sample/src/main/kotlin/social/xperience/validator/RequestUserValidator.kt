@@ -53,14 +53,20 @@ class ProfessionValidator : Verification<String?> {
 
 class RegisterValidator : Verification<Register> {
     override fun verify(toVerify: Register) {
-        TODO("Not yet implemented")
+        with(toVerify) {
+            if (firstname.codePoints().count() > 100) {
+                throw IllegalArgumentException("Firstname max length is 100")
+            }
+            if (firstname.codePoints().count() < 2) {
+                throw IllegalArgumentException("Firstname min length is 2")
+            }
+
+            if (lastname.codePoints().count() > 100) {
+                throw IllegalArgumentException("Lastname max length is 100")
+            }
+            if (lastname.codePoints().count() < 2) {
+                throw IllegalArgumentException("Lastname min length is 2")
+            }
+        }
     }
-
-}
-
-class LoginValidator : Verification<Login> {
-    override fun verify(toVerify: Login) {
-        TODO("Not yet implemented")
-    }
-
 }

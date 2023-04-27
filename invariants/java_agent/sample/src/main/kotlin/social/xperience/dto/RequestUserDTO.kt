@@ -14,7 +14,6 @@ data class Update(
     val birthday: Long? = null,
 )
 
-@Holds(LoginValidator::class)
 data class Login(
     @Holds(EmailValidator::class)
     val email: Email,
