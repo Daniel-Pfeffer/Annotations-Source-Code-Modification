@@ -8,7 +8,7 @@ import kotlin.reflect.KClass
     AnnotationTarget.LOCAL_VARIABLE,
     AnnotationTarget.CLASS,
     AnnotationTarget.CONSTRUCTOR,
-    AnnotationTarget.PROPERTY
+    AnnotationTarget.PROPERTY, AnnotationTarget.VALUE_PARAMETER
 )
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Holds(val verifier: KClass<out Verification<*>>)

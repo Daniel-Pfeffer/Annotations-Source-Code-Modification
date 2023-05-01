@@ -14,6 +14,8 @@ class UserEntity(
     var description: String? = null,
     var birthday: LocalDateTime? = null,
 ) {
+    var loggedIn: Boolean = false
+
     fun update(dto: Update) {
         username = dto.username ?: username
         firstname = dto.firstname ?: firstname

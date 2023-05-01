@@ -6,6 +6,7 @@ import javassist.CtField
 import javassist.CtMethod
 import javassist.Modifier
 import javassist.bytecode.LocalVariableAttribute
+import javassist.bytecode.ParameterAnnotationsAttribute
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
@@ -88,24 +89,29 @@ class RealTransformer(className: String) {
         }
     }
 
+    private fun CtMethod.getParameterNames(): Array<String> {
+        val numberOfParams = parameterTypes.size
+        val localVariableTable =
+            methodInfo.codeAttribute.getAttribute(LocalVariableAttribute.tag) as LocalVariableAttribute
+        return Array(numberOfParams) {
+            // local variable table for parameters is 1 indexed, as 0 is `this`
+            localVariableTable.variableName(it + 1)
+        }
+    }
+
     private fun visitMethod(ctMethod: CtMethod) {
         // kotlin creates static functions for annotations for property annotation called ${propertyName}$annotations
         if (ctMethod.name.endsWith("\$annotations")) {
             return
         }
+        visitParameterAnnotation(ctMethod)
         val annotation = ctMethod.getAnnotation(Commons.annotation.java) as Holds? ?: return
         logger.info("Found method annotation in class ${ctClass.name}#${ctMethod.name}")
         visitAnnotation(annotation)
         hasChanges = true
         val paramSize = ctMethod.parameterTypes.size
-        val params =
-            (ctMethod.methodInfo.codeAttribute.getAttribute(LocalVariableAttribute.tag) as LocalVariableAttribute)
 
-        val functionVerifierParam = mutableListOf<String>()
-
-        repeat(paramSize) {
-            functionVerifierParam += params.variableName(it)
-        }
+        val functionVerifierParam = ctMethod.getParameterNames()
 
         val x =
             "${ctClass.name}.${annotation.verifier.simpleName!!.lowercase()}.verify(new social.xperience.common.FunctionVerifierClass.FunctionVerifier$paramSize(${
@@ -115,6 +121,25 @@ class RealTransformer(className: String) {
             }));"
 
         ctMethod.insertBefore(x)
+    }
+
+    private fun visitParameterAnnotation(ctMethod: CtMethod) {
+        val paramAttribute = ctMethod.methodInfo.getAttribute(ParameterAnnotationsAttribute.visibleTag) ?: return
+        val paramAnnotationAttribute = (paramAttribute as ParameterAnnotationsAttribute)
+        val annotations = paramAnnotationAttribute.annotations
+
+        annotations.forEachIndexed { index, annotationsForParam ->
+            annotationsForParam.forEach {
+                if (it.typeName == Holds::class.qualifiedName!!) {
+                    val parameter = ctMethod.getParameterNames()[index]
+                    logger.info("Found method parameter annotation in ${ctClass.name}#${ctMethod.name}($parameter)")
+                    val annotation: Holds = it.toAnnotationType(classPool.classLoader, classPool) as Holds
+                    visitAnnotation(annotation)
+
+                    ctMethod.insertBefore("${ctClass.name}.${annotation.verifier.simpleName!!.lowercase()}.verify($parameter);")
+                }
+            }
+        }
     }
 
 
