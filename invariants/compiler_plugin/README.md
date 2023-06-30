@@ -1,4 +1,4 @@
-This project encompasses the implementation for Kotlin compiler plugin.
+This project encompasses the implementation for the Kotlin compiler plugin.
 Consisting of:
 * [The compiler plugin implementation](compiler-plugin)
 * [An implementation for a sample use-case](sample)
