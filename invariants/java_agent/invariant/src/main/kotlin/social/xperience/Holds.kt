@@ -11,5 +11,6 @@ import kotlin.reflect.KClass
     AnnotationTarget.PROPERTY,
     AnnotationTarget.VALUE_PARAMETER
 )
+@Repeatable
 @Retention(AnnotationRetention.RUNTIME)
 annotation class Holds(val verifier: KClass<out Verification<*>>)

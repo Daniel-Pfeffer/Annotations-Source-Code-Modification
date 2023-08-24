@@ -12,6 +12,8 @@ public class InvariantsClassTransformer implements ClassFileTransformer {
 
     @Override
     public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined, ProtectionDomain protectionDomain, byte[] classfileBuffer) throws IllegalClassFormatException {
+        long start = System.currentTimeMillis();
+        long end;
         RealTransformer transformer = new RealTransformer(className);
         try {
             transformer.visit();
@@ -19,7 +21,10 @@ public class InvariantsClassTransformer implements ClassFileTransformer {
             logger.error(t.getMessage());
         }
         if (transformer.shouldCompile()) {
-            return transformer.compile();
+            byte[] compiled = transformer.toBytecode();
+            end = System.currentTimeMillis();
+            logger.info("############## Time difference {} in class {}", end - start, className);
+            return compiled;
         }
         return ClassFileTransformer.super.transform(loader, className, classBeingRedefined, protectionDomain, classfileBuffer);
     }

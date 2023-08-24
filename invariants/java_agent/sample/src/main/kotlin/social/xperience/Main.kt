@@ -5,7 +5,7 @@ import social.xperience.validator.DoSomethingVerifier
 
 
 fun main() {
-    val emptyUpdate = Update(lastname = "Pfeffer")
+    val emptyUpdate = Update(lastname = "Pfeffer", profession = "test")
     doSomething(emptyUpdate)
 }
 

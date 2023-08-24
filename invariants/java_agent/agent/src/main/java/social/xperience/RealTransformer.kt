@@ -1,17 +1,15 @@
 package social.xperience
 
-import javassist.ClassPool
-import javassist.CtBehavior
-import javassist.CtConstructor
-import javassist.CtField
-import javassist.CtMethod
-import javassist.Modifier
+import javassist.*
 import javassist.bytecode.LocalVariableAttribute
 import javassist.bytecode.ParameterAnnotationsAttribute
+import javassist.bytecode.annotation.AnnotationMemberValue
+import javassist.bytecode.annotation.ArrayMemberValue
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.util.*
 import kotlin.reflect.KClass
+import javassist.bytecode.annotation.Annotation as BytecodeAnnotation
 
 class RealTransformer(className: String) {
     private val classPool = ClassPool.getDefault()
@@ -51,13 +49,14 @@ class RealTransformer(className: String) {
     fun shouldCompile(): Boolean = classVerifier != null || annotatedFields.isNotEmpty() || hasChanges
 
 
-    fun compile(): ByteArray {
-        ctClass.writeFile("generated")
+    fun toBytecode(): ByteArray {
+        // ctClass.writeFile("generated")
         return ctClass.toBytecode()
     }
 
     private fun visitProperty(field: CtField) {
-        val annotation: Holds = field.getPropertyAnnotation(Commons.annotation) as Holds? ?: return
+        val fieldAnnotation = field.getAnnotation(Commons.annotation.java) as Holds?
+        val annotation: Holds = fieldAnnotation ?: field.getPropertyAnnotation(Commons.annotation) as Holds? ?: return
         logger.info("Found property annotation in class ${ctClass.name}#${field.name}")
         visitAnnotation(annotation)
         annotatedFields[field] = annotation.verifier
@@ -69,6 +68,7 @@ class RealTransformer(className: String) {
 
     private fun generateVerificationForFieldWithSetter(field: CtField, annotation: Holds) {
         annotatedFieldsWithSetter[field] = annotation.verifier
+        hasChanges = true
         val setter = field.setter()
         setter.insertAfter("${ctClass.name}.${annotation.verifier.simpleName!!.lowercase()}.verify(this.${field.name});")
     }
@@ -82,16 +82,19 @@ class RealTransformer(className: String) {
         visitConstructorParameter(ctConstructor)
 
         if (classVerifier != null) {
+            hasChanges = true
             ctConstructor.insertAfter(
                 "${ctClass.name}.${classVerifier!!.simpleName!!.lowercase()}.verify(this);"
             )
         }
         annotatedFields.forEach { (field, verifier) ->
+            hasChanges = true
             ctConstructor.insertAfter(
                 "${ctClass.name}.${verifier.simpleName!!.lowercase()}.verify(this.${field.name});"
             )
         }
         if (annotation != null) {
+            hasChanges = true
             ctConstructor.insertAfter(
                 "${ctClass.name}.${annotation.verifier.simpleName!!.lowercase()}.verify(this);"
             )
@@ -106,17 +109,37 @@ class RealTransformer(className: String) {
         annotations.forEachIndexed { index, annotationsForParam ->
             annotationsForParam.forEach {
                 if (it.typeName == Commons.annotation.qualifiedName!!) {
-                    // this might or might not be extremely hacky and probably won't work without Kotlin
-                    val field = ctConstructor.declaringClass.declaredFields[index]
-                    logger.info("Found field annotation in ${ctClass.name}#${field}")
-                    val annotation: Holds = it.toAnnotationType(classPool.classLoader, classPool) as Holds
-                    visitAnnotation(annotation)
-                    annotatedFields[field] = annotation.verifier
-                    if (field.hasSetter()) {
-                        generateVerificationForFieldWithSetter(field, annotation)
+                    handleAnnotation(ctConstructor.declaringClass.declaredFields[index], it)
+                } else if (it.typeName == Commons.annotationContainerName) {
+                    handleContainerAnnotation(it) { subAnnotation ->
+                        handleAnnotation(ctConstructor.declaringClass.declaredFields[index], subAnnotation)
                     }
                 }
             }
+        }
+    }
+
+    private fun handleContainerAnnotation(
+        annotation: BytecodeAnnotation,
+        handleSubAnnotation: (annotation: BytecodeAnnotation) -> Unit,
+    ) {
+        if (annotation.typeName == Commons.annotationContainerName) {
+            val memberValueAnnotations = (annotation.getMemberValue("value") as ArrayMemberValue).value
+            memberValueAnnotations.forEach { annotationMemberValue ->
+                annotationMemberValue as AnnotationMemberValue
+                handleSubAnnotation(annotationMemberValue.value)
+            }
+        }
+    }
+
+    private fun handleAnnotation(field: CtField, annotation: BytecodeAnnotation) {
+        // this might or might not be extremely hacky and probably won't work without Kotlin
+        logger.info("Found field annotation in ${ctClass.name}#${field}")
+        val annotation: Holds = annotation.toAnnotationType(classPool.classLoader, classPool) as Holds
+        visitAnnotation(annotation)
+        annotatedFields[field] = annotation.verifier
+        if (field.hasSetter()) {
+            generateVerificationForFieldWithSetter(field, annotation)
         }
     }
 
@@ -148,10 +171,10 @@ class RealTransformer(className: String) {
         val paramAttribute = ctMethod.methodInfo.getAttribute(ParameterAnnotationsAttribute.visibleTag) ?: return
         val paramAnnotationAttribute = (paramAttribute as ParameterAnnotationsAttribute)
         val annotations = paramAnnotationAttribute.annotations
-
         annotations.forEachIndexed { index, annotationsForParam ->
             annotationsForParam.forEach {
                 if (it.typeName == Commons.annotation.qualifiedName!!) {
+                    hasChanges = true
                     val parameter = ctMethod.getParameterNames()[index]
                     logger.info("Found method parameter annotation in ${ctClass.name}#${ctMethod.name}($parameter)")
                     val annotation: Holds = it.toAnnotationType(classPool.classLoader, classPool) as Holds
@@ -173,6 +196,7 @@ class RealTransformer(className: String) {
             val field = CtField(classPool.get(verifierClassName), name, ctClass)
             field.modifiers = Modifier.STATIC
             ctClass.addField(field, CtField.Initializer.byNew(classPool.get(verifierClassName)))
+            createdVerificationFields.add(name)
         }
     }
 
@@ -187,7 +211,7 @@ class RealTransformer(className: String) {
     }
 
     /**
-     * Convience method to check if a class field has a dedicated autogenerated setter function
+     * Convenience method to check if a class field has a dedicated autogenerated setter function
      */
     private fun CtField.hasSetter(): Boolean {
         return declaringClass.declaredMethods.any {

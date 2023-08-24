@@ -8,6 +8,7 @@ data class Update(
     val firstname: String? = null,
     val lastname: String? = null,
     val username: String? = null,
+    @Holds(FitsDatabaseColumn::class)
     @Holds(ProfessionValidator::class)
     val profession: String? = null,
     val description: String? = null,
@@ -28,7 +29,9 @@ typealias Password = String
 @Holds(RegisterValidator::class)
 data class Register(
     val username: String? = null,
+    @Holds(ProfessionValidator::class)
     val firstname: String,
+    @Holds(ProfessionValidator::class)
     val lastname: String,
     @Holds(EmailValidator::class)
     val email: Email,
