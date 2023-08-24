@@ -1,12 +1,13 @@
 package social.xperience.k2
 
-import org.jetbrains.kotlin.backend.common.CompilationException
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.fir.backend.Fir2IrConverter
 import org.jetbrains.kotlin.ir.builders.declarations.IrValueParameterBuilder
 import org.jetbrains.kotlin.ir.builders.declarations.buildClass
 import org.jetbrains.kotlin.ir.builders.declarations.buildConstructor
@@ -36,6 +37,7 @@ class InvariantIrGenerationExtension(
         }
         moduleFragment.files.forEach {
             InvariantCallTransformer(it, pluginContext.irBuiltIns, pluginContext, messageCollector).visitFile(it)
+            messageCollector.report(CompilerMessageSeverity.INFO, it.dump())
         }
     }
 
@@ -45,7 +47,7 @@ class InvariantIrGenerationExtension(
      */
     private fun createVerificationPool(context: IrPluginContext, file: IrFile): IrClass {
         return context.irFactory.buildClass {
-            // creates a new final object with name VerificationPool, package name is inherited by parent
+            // creates a new final object with name VerificationPool, parent inherits package name
             kind = ClassKind.OBJECT
             name = Name.identifier("VerificationPool")
             modality = Modality.FINAL

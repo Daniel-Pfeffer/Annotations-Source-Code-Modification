@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test
 import social.xperience.cli.InvariantRegistrar
 import java.lang.reflect.InvocationTargetException
 
+class SetterVerificationTest {
 
-class ConstructorVerificationTest {
     @Test
     fun validTest() {
         Assertions.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
@@ -30,25 +30,13 @@ class ConstructorVerificationTest {
     }
 
     @Test
-    fun invalidUsernameTest() {
-        Assertions.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+    fun invalidAgeTest2() {
+        Assertions.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode) { result.messages }
         val clazz = result.classLoader.loadClass("social.xperience.TestClassKt")
-        Assertions.assertThrowsExactly(IllegalArgumentException::class.java) {
-            callUnwrapped(clazz, "mainInvalidUsername")
+        Assertions.assertThrows(IllegalArgumentException::class.java) {
+            callUnwrapped(clazz, "mainInvalidAge2")
         }.also {
-            Assertions.assertEquals("Username must be at least 4 chars long", it.message)
-        }
-    }
-
-    @Test
-    fun invalidAgeAndUsernameTest() {
-        Assertions.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
-        val clazz = result.classLoader.loadClass("social.xperience.TestClassKt")
-        // More generic verification is done before the more specific, so class Holds are executed before property Holds
-        Assertions.assertThrowsExactly(IllegalArgumentException::class.java) {
-            callUnwrapped(clazz, "mainInvalidBoth")
-        }.also {
-            Assertions.assertEquals("Username must be at least 4 chars long", it.message)
+            Assertions.assertEquals("Must not be 60 years old to register", it.message)
         }
     }
 
@@ -72,8 +60,19 @@ class ConstructorVerificationTest {
                 package social.xperience
 
                 @Holds(TestVerification::class) 
-                data class TestUserData(@Holds(MustBe18::class) val age: Age, val username: String)
+                data class TestUserData( @Holds(MustBe18::class) val age: Age, val username: String)
                 
+                class UserEntity (
+                    val username: String,
+                    @Holds(MustBeLess60::class)
+                    @Holds(MustBe18::class)
+                    var age: Age
+                )
+
+                class Person{
+                    val name: String = "" 
+                    constructor() {}
+                }
                 
                 @JvmInline
                 value class Age(val value: Int)
@@ -91,11 +90,27 @@ class ConstructorVerificationTest {
                         }
                     }
                 }
+
+                class TestVerification2 : Verification<TestUserData> {
+                    override fun verify(toVerify: TestUserData) {
+                        if (toVerify.username.length < 5) {
+                            throw IllegalArgumentException("Username must be at least 5 chars long")
+                        }
+                    }
+                }
                 
                 class MustBe18 : Verification<Age> {
                     override fun verify(toVerify: Age) {
                         if (toVerify.value < 18) {
                             throw IllegalArgumentException("Must be at least 18 years old to register")
+                        }
+                    }
+                }
+
+                class MustBeLess60 : Verification<Age> {
+                    override fun verify(toVerify: Age) {
+                        if (toVerify.value >= 60) {
+                            throw IllegalArgumentException("Must not be 60 years old to register")
                         }
                     }
                 }
@@ -107,25 +122,22 @@ class ConstructorVerificationTest {
             package social.xperience
 
             fun mainValid(){
-                val user = TestUserData(Age(22), "MrAdult")
+                val user = UserEntity("MrAdult", Age(22))
+                user.age = Age(21)
                 println(user)
             }
 
             fun mainInvalidAge(){
                 // this should throw as user is too young
-                val user = TestUserData(Age(17), "MrTeenager")
+                val user = UserEntity("MrAdult", Age(22))
+                user.age = Age(17)
                 println(user)
             }
 
-            fun mainInvalidUsername(){
-                // this should throw as user's username is too short
-                val user = TestUserData(Age(18), "Mr")
-                println(user)
-            }
-
-            fun mainInvalidBoth(){
+            fun mainInvalidAge2(){
                 // this should throw as user is too young
-                val user = TestUserData(Age(17), "Mr")
+                val user = UserEntity("MrAdult", Age(22))
+                user.age = Age(100)
                 println(user)
             }
         """

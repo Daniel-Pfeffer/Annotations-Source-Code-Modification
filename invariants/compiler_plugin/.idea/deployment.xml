@@ -5,7 +5,7 @@
       <paths name="CDN">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$/gradle-plugin" web="/" />
+            <mapping local="$PROJECT_DIR$/gradle-plugin/src/main" web="/" />
             <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
@@ -13,7 +13,7 @@
       <paths name="CDN Prod">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$/gradle-plugin" web="/" />
+            <mapping local="$PROJECT_DIR$/gradle-plugin/src/main" web="/" />
             <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>

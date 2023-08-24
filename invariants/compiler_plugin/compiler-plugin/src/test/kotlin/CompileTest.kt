@@ -60,6 +60,7 @@ class CompileTest {
             sources = listOf(kotlinSource)
             compilerPluginRegistrars = listOf(InvariantRegistrar())
             useIR = true
+            useK2 = true
             inheritClassPath = true
             languageVersion = "2.0"
         }.compile()

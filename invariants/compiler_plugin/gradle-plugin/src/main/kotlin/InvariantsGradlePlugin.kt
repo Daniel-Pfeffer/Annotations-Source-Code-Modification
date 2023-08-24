@@ -9,8 +9,11 @@ class InvariantsGradlePlugin @Inject internal constructor(private val registry: 
     KotlinCompilerPluginSupportPlugin {
     override fun applyToCompilation(kotlinCompilation: KotlinCompilation<*>): Provider<List<SubpluginOption>> {
         val project = kotlinCompilation.target.project
+
         return project.provider {
-            val extension = project.extensions.getByType(InvariantsExtension::class.java)
+            val extension = project.extensions.findByType(InvariantsExtension::class.java) ?: project.extensions.create(
+                "invariants", InvariantsExtension::class.java, true
+            )
 
             listOf(SubpluginOption("enabled", extension.enabled.toString()))
         }
@@ -19,11 +22,11 @@ class InvariantsGradlePlugin @Inject internal constructor(private val registry: 
     override fun getCompilerPluginId(): String = "Invariants"
 
     override fun getPluginArtifact(): SubpluginArtifact =
-        SubpluginArtifact("social.xperience", "invariants-kotlin-plugin", "0.0.1")
+        SubpluginArtifact("social.xperience", "invariants-compiler-plugin", "1.0-SNAPSHOT")
 
     override fun isApplicable(kotlinCompilation: KotlinCompilation<*>): Boolean =
-        kotlinCompilation.platformType == KotlinPlatformType.jvm || kotlinCompilation.platformType == KotlinPlatformType.androidJvm
+        kotlinCompilation.platformType == KotlinPlatformType.jvm || kotlinCompilation.platformType == KotlinPlatformType.androidJvm || kotlinCompilation.platformType == KotlinPlatformType.js
 
 }
 
-data class InvariantsExtension(val enabled: Boolean)
+open class InvariantsExtension(val enabled: Boolean)

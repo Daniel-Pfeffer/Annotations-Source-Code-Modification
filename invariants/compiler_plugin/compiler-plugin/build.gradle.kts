@@ -4,6 +4,7 @@ plugins {
     buildsrc.convention.subproject
     buildsrc.convention.`kotlin-jvm`
     kotlin("kapt")
+    `maven-publish`
 }
 
 description = "Kotlin Compiler Plugin for Invariants"
@@ -32,4 +33,36 @@ tasks.withType<KotlinCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+
+publishing {
+    publications {
+        create<MavenPublication>("default") {
+            artifactId = "invariants-compiler-plugin"
+            from(components["java"])
+
+            pom {
+                name.set("invariants-compiler-plugin")
+                description.set("Compiler plugin for Invariants")
+                url.set("https://example.com")
+
+                licenses {
+                    license {
+                        name.set("Apache License 2.0")
+                    }
+                }
+                scm {
+                    url.set("https://github.com/Daniel-Pfeffer/Annotations-Source-Code-Modification")
+                    connection.set("scm:git:git://github.com/Daniel-Pfeffer/Annotations-Source-Code-Modification")
+                }
+                developers {
+                    developer {
+                        name.set("Daniel Pfeffer")
+                        url.set("https://github.com/Daniel-Pfeffer")
+                    }
+                }
+            }
+        }
+    }
 }
